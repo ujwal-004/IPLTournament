@@ -1,0 +1,12 @@
+body {
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+}
+form {
+    background: white;
+    color: black;
+    padding: 20px;
+    width: 300px;
+    margin: auto;
+}
