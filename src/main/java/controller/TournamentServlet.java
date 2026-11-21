@@ -216,6 +216,9 @@ public class TournamentServlet extends HttpServlet {
             int team1Id = findTeamId(connection, team1);
             int team2Id = findTeamId(connection, team2);
             Integer winnerId = winner.isBlank() ? null : findTeamId(connection, winner);
+            if (winnerId != null && winnerId != team1Id && winnerId != team2Id) {
+                throw new IllegalArgumentException("Winner must be one of the two teams playing this match.");
+            }
 
             try (PreparedStatement statement = connection.prepareStatement(
                 "INSERT INTO matches (team1_id, team2_id, winner_team_id, match_date, venue) VALUES (?, ?, ?, ?, ?)")) {
