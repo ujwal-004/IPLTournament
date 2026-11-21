@@ -1,79 +1,87 @@
-## Welcome to Apache Tomcat!
+# IPL Tournament Manager
 
-### What Is It?
+A Java Servlet/JSP tournament management application for Apache Tomcat 9. Authenticated users can add teams, assign players to teams, schedule matches and view the tournament dashboard.
 
-The Apache Tomcat® software is an open source implementation of the Java
-Servlet, JavaServer Pages, Java Expression Language and Java WebSocket
-technologies. The Java Servlet, JavaServer Pages, Java Expression Language and
-Java WebSocket specifications are developed under the
-[Java Community Process](https://jcp.org/en/introduction/overview).
+## Features
 
-The Apache Tomcat software is developed in an open and participatory
-environment and released under the
-[Apache License version 2](https://www.apache.org/licenses/). The Apache Tomcat
-project is intended to be a collaboration of the best-of-breed developers from
-around the world. We invite you to participate in this open development
-project. To learn more about getting involved,
-[click here](https://tomcat.apache.org/getinvolved.html) or keep reading.
+- Session-based login with BCrypt password verification
+- First admin account bootstrapped from environment variables (no hard-coded default password)
+- Team management: name, coach and owner
+- Player management: name, role and team relationship
+- Match scheduling: two teams, optional winner, date and venue
+- Dashboard lists teams, players and matches
+- Parameterized JDBC statements and database foreign keys
 
-Apache Tomcat software powers numerous large-scale, mission-critical web
-applications across a diverse range of industries and organizations. Some of
-these users and their stories are listed on the
-[PoweredBy wiki page](https://cwiki.apache.org/confluence/display/TOMCAT/PoweredBy).
+## Tech stack
 
-Apache Tomcat, Tomcat, Apache, the Apache feather, and the Apache Tomcat
-project logo are trademarks of the Apache Software Foundation.
+Java 17, Maven, Java Servlet 4.0 (`javax.servlet`), JSP/JSTL, Apache Tomcat 9, MySQL, BCrypt.
 
-### Get It
+## Requirements
 
-For every major Tomcat version there is one download page containing
-links to the latest binary and source code downloads, but also
-links for browsing the download directories and archives:
-- [Tomcat 11](https://tomcat.apache.org/download-11.cgi)
-- [Tomcat 10](https://tomcat.apache.org/download-10.cgi)
-- [Tomcat 9](https://tomcat.apache.org/download-90.cgi)
+- JDK 17+
+- Maven 3.9+
+- MySQL 8 or compatible server
+- Apache Tomcat 9.0.x (Tomcat 10/11 is not supported by this javax.servlet build)
 
-To facilitate choosing the right major Tomcat version one, we have provided a
-[version overview page](https://tomcat.apache.org/whichversion.html).
+## 1. Create the database
 
-### Documentation
+From the repository root:
 
-The documentation available as of the date of this release is
-included in the docs webapp which ships with tomcat. You can access that webapp
-by starting tomcat and visiting <http://localhost:8080/docs/> in your browser.
-The most up-to-date documentation for each version can be found at:
-- [Tomcat 11](https://tomcat.apache.org/tomcat-11.0-doc/)
-- [Tomcat 10](https://tomcat.apache.org/tomcat-10.1-doc/)
-- [Tomcat 9](https://tomcat.apache.org/tomcat-9.0-doc/)
+```bash
+mysql -u root -p < schema.sql
+```
 
-### Installation
+This creates `ipl_tournament` and the `users`, `teams`, `players` and `matches` tables. The schema does not install a default password.
 
-Please see [RUNNING.txt](RUNNING.txt) for more info.
+## 2. Configure the database and initial admin
 
-### Licensing
+Set these environment variables in the Tomcat process before first deployment:
 
-Please see [LICENSE](LICENSE) for more info.
+| Variable | Purpose | Default |
+|---|---|---|
+| `IPL_DB_URL` | JDBC URL | `jdbc:mysql://localhost:3306/ipl_tournament?useSSL=false&serverTimezone=UTC` |
+| `IPL_DB_USER` | Database username | `root` |
+| `IPL_DB_PASSWORD` | Database password | empty |
+| `IPL_ADMIN_USERNAME` | First admin username | not configured |
+| `IPL_ADMIN_PASSWORD` | First admin password (12–72 UTF-8 bytes) | not configured |
 
-### Support and Mailing List Information
+The first admin is inserted once at servlet startup if the configured username does not exist. Its password is stored as a BCrypt hash. Keep these environment values private and never commit them.
 
-* Free community support is available through the
-[tomcat-users](https://tomcat.apache.org/lists.html#tomcat-users) email list and
-a dedicated [IRC channel](https://tomcat.apache.org/irc.html) (#tomcat on
-Freenode).
+For local development you can copy `.env.example` as a reference, but Tomcat does not automatically load `.env`; export the variables in the shell or configure them in the service environment.
 
-* If you want freely available support for running Apache Tomcat, please see the
-resources page [here](https://tomcat.apache.org/findhelp.html).
+## 3. Build the WAR
 
-* If you want to be informed about new code releases, bug fixes,
-security fixes, general news and information about Apache Tomcat, please
-subscribe to the
-[tomcat-announce](https://tomcat.apache.org/lists.html#tomcat-announce) email
-list.
+```bash
+mvn clean package
+```
 
-* If you have a concrete bug report for Apache Tomcat, please see the
-instructions for reporting a bug
-[here](https://tomcat.apache.org/bugreport.html).
+The deployable artifact is `target/ipl-tournament.war`.
 
-### Contributing
+## 4. Deploy to Tomcat 9
 
-Please see [CONTRIBUTING](CONTRIBUTING.md) for more info.
+Copy `target/ipl-tournament.war` to Tomcat's `webapps/` directory, start Tomcat, then open:
+
+- Login: `http://localhost:8080/ipl-tournament/login.jsp`
+- Dashboard: `http://localhost:8080/ipl-tournament/DashboardServlet`
+
+On Windows you may use `build-app.ps1` to run Maven and `run-server.ps1` to copy the WAR and start a configured Tomcat 9 installation. Set `CATALINA_HOME` and `JAVA_HOME` first.
+
+## Forms and routes
+
+| Form | Servlet route | Required input fields |
+|---|---|---|
+| Login | POST `/LoginServlet` | `username`, `password` |
+| Team | POST `/TeamServlet` | `name`, optional `coach`, `owner` |
+| Player | POST `/PlayerServlet` | `name`, optional `role`, `teamId` |
+| Match | POST `/MatchServlet` | `team1`, `team2`, optional `winner`, `match_date`, `venue` |
+| Logout | GET `/LogoutServlet` | — |
+| Dashboard | GET `/DashboardServlet` | — |
+
+Team names entered in match forms must exactly match existing team names. Player entries require an existing team ID.
+
+## Security and limitations
+
+- Passwords are BCrypt-hashed and never stored as plaintext.
+- Servlet sessions are invalidated on logout and use a 30-minute inactivity timeout.
+- SQL inputs are parameterized; team/player/match relationships are enforced by foreign keys.
+- This is an educational application, not a production-ready tournament platform. Before public deployment, add CSRF protection, HTTPS, security headers, login rate limiting, administrative roles and audit logging. Use a least-privilege database account.
