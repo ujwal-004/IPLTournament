@@ -1,35 +1,18 @@
 $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
-$TomcatDir = Join-Path $ProjectRoot "server\tomcat"
-$JavaHome = "C:\Program Files\Java\jdk-21.0.10"
-$TomcatPort = 8081
-$ShutdownPort = 8006
+$TomcatHome = $env:CATALINA_HOME
 
-function Stop-OurTomcat {
-    foreach ($port in @($TomcatPort, $ShutdownPort)) {
-        $matches = netstat -ano | Select-String ":$port\s" | Select-String "LISTENING"
-        foreach ($line in $matches) {
-            $procId = [int](($line -split '\s+')[-1])
-            try {
-                $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$procId").CommandLine
-                if ($cmd -like "*$TomcatDir*") {
-                    Write-Host "Stopping Tomcat PID $procId on port $port..."
-                    Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
-                }
-            } catch {}
-        }
-    }
-    Start-Sleep -Seconds 2
+if (-not $TomcatHome -or -not (Test-Path (Join-Path $TomcatHome "bin\catalina.bat"))) {
+    throw "Set CATALINA_HOME to an Apache Tomcat 9 installation before running this script."
+}
+if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
+    throw "Java is not available on PATH. Install JDK 17+ and try again."
 }
 
 & (Join-Path $ProjectRoot "build-app.ps1")
-Stop-OurTomcat
+$War = Join-Path $ProjectRoot "target\ipl-tournament.war"
+$DeployWar = Join-Path $TomcatHome "webapps\ipl-tournament.war"
+Copy-Item $War $DeployWar -Force
 
-Write-Host ""
-Write-Host "Starting Tomcat on http://localhost:$TomcatPort/ipl/"
-Write-Host "Login credentials: admin / admin123"
-Write-Host ""
-
-$env:JAVA_HOME = $JavaHome
-$env:CATALINA_HOME = $TomcatDir
-& (Join-Path $TomcatDir "bin\catalina.bat") run
+Write-Host "Starting IPL Tournament Manager at http://localhost:8080/ipl-tournament/login.jsp" -ForegroundColor Green
+& (Join-Path $TomcatHome "bin\catalina.bat") run
