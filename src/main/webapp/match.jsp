@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <% if (session.getAttribute("userId") == null) { response.sendRedirect("login.jsp"); return; } %>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Add Match</title><link rel="stylesheet" href="css/style.css"></head><body>
 <header class="topbar">
@@ -12,7 +13,7 @@
   </nav>
 </header>
 <main class="container"><h1>Add Match</h1><p class="subtitle">Create a fixture by entering the exact team names used in the Teams list.</p>
-<% if (request.getAttribute("error") != null) { %><div class="message error"><%= org.apache.commons.text.StringEscapeUtils.escapeHtml4(String.valueOf(request.getAttribute("error"))) %></div><% } %>
+<c:if test="${not empty error}"><div class="message error"><c:out value="${error}"/></div></c:if>
 <section class="panel"><form action="MatchServlet" method="post"><div class="form-grid">
 <div><label for="team1">Team 1</label><input id="team1" name="team1" required maxlength="100"></div>
 <div><label for="team2">Team 2</label><input id="team2" name="team2" required maxlength="100"></div>
